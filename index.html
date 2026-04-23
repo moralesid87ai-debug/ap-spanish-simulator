@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AP Spanish Language - Simulated Conversation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background: #f3f4f6; }
+        .timer-circle {
+            transition: stroke-dashoffset 0.1s linear;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+        .rubric-item:hover { background-color: #f9fafb; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div id="app" class="max-w-2xl w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200 my-8">
+        <div class="bg-blue-600 p-6 text-white text-center">
+            <h1 class="text-2xl font-bold">Simulador de Conversación AP</h1>
+            <p class="text-blue-100 text-sm mt-1">Práctica para el Examen de Español 5</p>
+        </div>
+
+        <div id="content" class="p-8 min-h-[400px] flex flex-col justify-center items-center text-center">
+            <div id="start-screen" class="space-y-6 w-full">
+                <div class="bg-blue-50 p-4 rounded-lg text-blue-800 text-left border-l-4 border-blue-500">
+                    <p class="font-semibold mb-2">Instrucciones:</p>
+                    <ul class="list-disc ml-5 text-sm space-y-1">
+                        <li>Ingresa tu nombre para identificar tu entrega.</li>
+                        <li>Escucharás una voz nativa aleatoria en cada práctica.</li>
+                        <li>Tendrás 20 segundos para responder a cada intervención.</li>
+                        <li>Al final, completa la autoevaluación y descarga tu archivo con las 5 respuestas unidas.</li>
+                    </ul>
+                </div>
+                
+                <div class="space-y-2 text-left">
+                    <label for="student-name" class="block text-sm font-medium text-gray-700">Nombre del Alumno:</label>
+                    <input type="text" id="student-name" placeholder="Ej. Juan Pérez" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+
+                <button onclick="initApp()" id="start-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition-all transform hover:scale-105">
+                    Empezar Práctica
+                </button>
+            </div>
+
+            <div id="loading" class="hidden flex flex-col items-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                <p class="text-gray-600">Generando un interlocutor y un tema nuevo...</p>
+            </div>
+
+            <div id="conversation-screen" class="hidden w-full space-y-6">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h2 id="scenario-topic" class="text-xl font-bold text-gray-800 mb-2"></h2>
+                    <p id="scenario-context" class="text-sm text-gray-600 italic"></p>
+                </div>
+
+                <div class="relative flex items-center justify-center">
+                    <svg width="160" height="160" class="transform -rotate-90">
+                        <circle cx="80" cy="80" r="70" stroke="#e5e7eb" stroke-width="8" fill="transparent" />
+                        <circle id="timer-progress" cx="80" cy="80" r="70" stroke="#2563eb" stroke-width="8" fill="transparent" stroke-dasharray="440" stroke-dashoffset="0" class="timer-circle" />
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span id="timer-text" class="text-4xl font-bold text-gray-800">20</span>
+                        <span class="text-xs uppercase text-gray-400">segundos</span>
+                    </div>
+                </div>
+
+                <div id="status-box" class="p-4 rounded-xl font-semibold transition-colors duration-300">
+                    <p id="status-text"></p>
+                </div>
+
+                <div id="instruction-box" class="bg-yellow-50 p-3 rounded border border-yellow-200 text-sm text-yellow-800 hidden">
+                    <p id="current-instruction"></p>
+                </div>
+            </div>
+
+            <div id="results-screen" class="hidden w-full space-y-6 text-left">
+                <div class="text-center">
+                    <div class="text-green-600 text-5xl mb-2">✓</div>
+                    <h2 class="text-2xl font-bold">¡Práctica Finalizada!</h2>
+                    <p class="text-gray-600 text-sm">Tus 5 respuestas se han unido en un solo archivo. Evalúa tu desempeño antes de descargar:</p>
+                </div>
+
+                <div class="border border-gray-200 rounded-lg overflow-hidden text-xs">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="p-2 text-left">Criterio (AP Scale)</th>
+                                <th class="p-2 text-center">1-2</th>
+                                <th class="p-2 text-center">3-4</th>
+                                <th class="p-2 text-center">5</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <tr class="rubric-item">
+                                <td class="p-2 font-medium">Interacción y Fluidez</td>
+                                <td class="p-2 text-center"><input type="radio" name="r1"></td>
+                                <td class="p-2 text-center"><input type="radio" name="r1"></td>
+                                <td class="p-2 text-center"><input type="radio" name="r1"></td>
+                            </tr>
+                            <tr class="rubric-item">
+                                <td class="p-2 font-medium">Estrategias (Aclarar/Reaccionar)</td>
+                                <td class="p-2 text-center"><input type="radio" name="r2"></td>
+                                <td class="p-2 text-center"><input type="radio" name="r2"></td>
+                                <td class="p-2 text-center"><input type="radio" name="r2"></td>
+                            </tr>
+                            <tr class="rubric-item">
+                                <td class="p-2 font-medium">Registro y Vocabulario</td>
+                                <td class="p-2 text-center"><input type="radio" name="r3"></td>
+                                <td class="p-2 text-center"><input type="radio" name="r3"></td>
+                                <td class="p-2 text-center"><input type="radio" name="r3"></td>
+                            </tr>
+                            <tr class="rubric-item">
+                                <td class="p-2 font-medium">Control Gramatical</td>
+                                <td class="p-2 text-center"><input type="radio" name="r4"></td>
+                                <td class="p-2 text-center"><input type="radio" name="r4"></td>
+                                <td class="p-2 text-center"><input type="radio" name="r4"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="flex flex-col gap-4">
+                    <button id="download-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg flex items-center justify-center gap-2 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Descargar Audio de la Conversación
+                    </button>
+                    
+                    <button onclick="location.reload()" class="text-blue-600 text-center text-sm font-semibold hover:underline">
+                        Intentar otro tema
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-gray-50 p-4 border-t border-gray-200 text-center text-xs text-gray-500">
+            Optimizada para Chromebooks y Google Apps Script.
+        </div>
+    </div>
+
+    <script>
+        const apiKey = "AIzaSyD2OSl260XQ8bUhBofGeYr2NvDA3ClXihQ";
+        let scenarioData = null;
+        let currentStep = -1;
+        let timerInterval = null;
+        const totalSteps = 5;
+        let studentName = "";
+        
+        const voices = ["Kore", "Puck", "Fenrir", "Zephyr", "Charon", "Leda", "Orus", "Aoede"];
+        const selectedVoice = voices[Math.floor(Math.random() * voices.length)];
+
+        let mediaRecorder;
+        let recordedChunks = [];
+        let allAudioBlobs = [];
+
+        async function initApp() {
+            studentName = document.getElementById('student-name').value.trim();
+            if (!studentName) {
+                alert("Por favor, ingresa tu nombre antes de comenzar.");
+                return;
+            }
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream.getTracks().forEach(track => track.stop());
+                generateScenario();
+            } catch (err) {
+                alert("Error: No se pudo acceder al micrófono. Asegúrate de dar permisos.");
+                console.error(err);
+            }
+        }
+
+        async function fetchWithRetry(url, options, retries = 5) {
+            let lastError;
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.ok) return response;
+                    if (response.status === 429 || response.status >= 500) {
+                        await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                        continue;
+                    }
+                    return response;
+                } catch (e) {
+                    lastError = e;
+                    await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                }
+            }
+            throw lastError || new Error("Fallo tras reintentos");
+        }
+
+        function createWavHeader(pcmData, sampleRate = 24000) {
+            const buffer = new ArrayBuffer(44 + pcmData.length);
+            const view = new DataView(buffer);
+            const writeString = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + pcmData.length, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeString(36, 'data');
+            view.setUint32(40, pcmData.length, true);
+            new Uint8Array(buffer, 44).set(new Uint8Array(pcmData));
+            return buffer;
+        }
+
+        async function speak(text) {
+            return new Promise(async (resolve) => {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+                const payload = {
+                    contents: [{ parts: [{ text: text }] }],
+                    generationConfig: {
+                        responseModalities: ["AUDIO"],
+                        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } }
+                    }
+                };
+                try {
+                    const res = await fetchWithRetry(url, { method: 'POST', body: JSON.stringify(payload) });
+                    const result = await res.json();
+                    const part = result.candidates?.[0]?.content?.parts?.[0];
+                    if (part?.inlineData) {
+                        const rawData = Uint8Array.from(atob(part.inlineData.data), c => c.charCodeAt(0));
+                        const sampleRate = part.inlineData.mimeType.match(/rate=(\d+)/) ? parseInt(part.inlineData.mimeType.match(/rate=(\d+)/)[1]) : 24000;
+                        const wavBuffer = createWavHeader(rawData, sampleRate);
+                        const audio = new Audio(URL.createObjectURL(new Blob([wavBuffer], { type: 'audio/wav' })));
+                        audio.onended = resolve;
+                        await audio.play();
+                    } else { await fallbackSpeak(text); resolve(); }
+                } catch (e) { await fallbackSpeak(text); resolve(); }
+            });
+        }
+
+        function fallbackSpeak(text) {
+            return new Promise((r) => {
+                const u = new SpeechSynthesisUtterance(text);
+                u.lang = 'es-ES'; u.onend = r; u.onerror = r;
+                window.speechSynthesis.speak(u);
+            });
+        }
+
+        async function generateScenario() {
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('loading').classList.remove('hidden');
+            
+            const prompt = `Genera un escenario realista para la prueba de conversación del examen AP de Español Lenguaje y Cultura. 
+            El tema debe ser uno de los 6 oficiales. JSON format: { "topic": "...", "context": "...", "introduction": "...", "interactions": [{"audioText": "...", "instruction": "..."}] } (total 5 interacciones). Todo en español.`;
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                topic: { type: "string" }, context: { type: "string" }, introduction: { type: "string" },
+                                interactions: { type: "ARRAY", minItems: 5, maxItems: 5, items: { type: "OBJECT", properties: { audioText: { type: "string" }, instruction: { type: "string" } } } }
+                            },
+                            required: ["topic", "context", "introduction", "interactions"]
+                        }
+                    }
+                };
+                const res = await fetchWithRetry(url, { method: 'POST', body: JSON.stringify(payload) });
+                const data = await res.json();
+                scenarioData = JSON.parse(data.candidates[0].content.parts[0].text);
+                
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('conversation-screen').classList.remove('hidden');
+                document.getElementById('scenario-topic').innerText = scenarioData.topic;
+                document.getElementById('scenario-context').innerText = scenarioData.context;
+                startConversation();
+            } catch (e) { 
+                console.error(e);
+                alert("Hubo un problema de conexión. Recarga la página por favor."); 
+            }
+        }
+
+        async function startConversation() {
+            updateStatus("Escuchando Introducción...", "bg-gray-100 text-gray-700");
+            await speak(scenarioData.introduction);
+            nextTurn();
+        }
+
+        async function nextTurn() {
+            currentStep++;
+            if (currentStep >= totalSteps) {
+                finishConversation();
+                return;
+            }
+            const interaction = scenarioData.interactions[currentStep];
+            updateStatus("Interlocutor hablando...", "bg-blue-100 text-blue-700");
+            document.getElementById('instruction-box').classList.add('hidden');
+            await speak(interaction.audioText);
+
+            updateStatus("🔴 GRABANDO RESPUESTA...", "bg-red-100 text-red-700 border-2 border-red-300");
+            document.getElementById('current-instruction').innerText = `Tarea: ${interaction.instruction}`;
+            document.getElementById('instruction-box').classList.remove('hidden');
+            
+            await startRecordingSession(20);
+            
+            updateStatus("Turno completado", "bg-gray-100 text-gray-500");
+            setTimeout(nextTurn, 1000);
+        }
+
+        async function startRecordingSession(seconds) {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            recordedChunks = [];
+            
+            return new Promise((resolve) => {
+                mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+                    allAudioBlobs.push(blob);
+                    stream.getTracks().forEach(t => t.stop());
+                    resolve();
+                };
+                
+                mediaRecorder.start();
+                startTimer(seconds).then(() => mediaRecorder.stop());
+            });
+        }
+
+        function updateStatus(text, classes) {
+            const box = document.getElementById('status-box');
+            box.className = `p-4 rounded-xl font-semibold ${classes}`;
+            document.getElementById('status-text').innerText = text;
+        }
+
+        function startTimer(seconds) {
+            return new Promise((resolve) => {
+                let timeLeft = seconds;
+                const progressCircle = document.getElementById('timer-progress');
+                const textDisplay = document.getElementById('timer-text');
+                const dashArray = 440;
+                if (timerInterval) clearInterval(timerInterval);
+                timerInterval = setInterval(() => {
+                    timeLeft -= 0.1;
+                    if (timeLeft <= 0) {
+                        clearInterval(timerInterval);
+                        progressCircle.style.strokeDashoffset = dashArray;
+                        textDisplay.innerText = "0";
+                        resolve();
+                    } else {
+                        progressCircle.style.strokeDashoffset = dashArray - (timeLeft / seconds) * dashArray;
+                        textDisplay.innerText = Math.ceil(timeLeft);
+                    }
+                }, 100);
+            });
+        }
+
+        function finishConversation() {
+            document.getElementById('conversation-screen').classList.add('hidden');
+            document.getElementById('results-screen').classList.remove('hidden');
+            
+            const finalBlob = new Blob(allAudioBlobs, { type: 'audio/webm' });
+            const url = URL.createObjectURL(finalBlob);
+            
+            const downloadBtn = document.getElementById('download-btn');
+            downloadBtn.onclick = () => {
+                const a = document.createElement('a');
+                const date = new Date().toISOString().slice(0,10);
+                const safeName = studentName.replace(/\s+/g, '_');
+                const safeTopic = scenarioData.topic.replace(/\s+/g, '_').substring(0, 20);
+                a.href = url;
+                a.download = `AP_Spanish_Convo_${safeName}_${safeTopic}_${date}.webm`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            };
+        }
+    </script>
+</body>
+</html>
+
+
